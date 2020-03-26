@@ -1126,7 +1126,7 @@ window.WAPI.getStatus = function(done){
         }
         return bad_status
     }
-}; 
+
 };
 
 window.WAPI.isLoggedIn = function (done) {
