@@ -105,7 +105,11 @@ class WhatsAPIDriver(object):
     _profile = None
 
     def get_local_storage(self):
-        return self.driver.execute_script('return window.localStorage;')
+        local_storage = self.driver.execute_script('return window.localStorage;')
+        escaped = {}
+        for k,v in local_storage.items():
+            escaped[k] = v.encode('unicode-escape').decode('ascii') if type(v) is str else v
+        return escaped
 
     def set_local_storage(self, data):
         self.driver.execute_script(''.join(["window.localStorage.setItem('{}', '{}');".format(k, v)
@@ -267,7 +271,7 @@ class WhatsAPIDriver(object):
         # it becomes ridiculously slow if the element is not found.
 
         # instead we use this (temporary) solution:
-        return 'class="app _3dqpi two"' in self.driver.page_source
+        return self.wapi_functions.isLoggedIn()
 
     def wait_for_login(self, timeout=90):
         """Waits for the QR to go away"""
@@ -338,8 +342,8 @@ class WhatsAPIDriver(object):
         return self.wapi_functions.getAllChatIds()
 
     def get_unread(
-            self, include_me=False,
-            include_notifications=False, filter_week=True
+            self, include_me=False, include_notifications=False,
+            filter_week=True, specific_chat=None
     ):
         """
         Fetches unread messages
@@ -350,14 +354,21 @@ class WhatsAPIDriver(object):
         :type include_notifications: bool or None
         :param filter_week: Filter only the last week of messages
         :type filter_week: bool
+        :param specific_chat: Specific chat from where get messages.
+        :type specific_chat: string
         :return: List of unread messages grouped by chats
         :rtype: list[MessageGroup]
         """
 
         seven_days_ago = int((datetime.now() - timedelta(days=7)).timestamp())
-        raw_message_groups = self.wapi_functions.getUnreadMessages(
-            include_me, include_notifications
-        )
+        if specific_chat is None:
+            raw_message_groups = self.wapi_functions.getUnreadMessages(
+                include_me, include_notifications
+            )
+        else:
+            raw_message_groups = self.wapi_functions.getUnreadMessagesUsingChatId(
+                specific_chat, include_me, include_notifications
+            )
 
         unread_messages = []
         for raw_message_group in raw_message_groups:
@@ -502,6 +513,9 @@ class WhatsAPIDriver(object):
 
     def chat_send_message_to_new(self, chat_id, message):
         result = self.wapi_functions.sendMessageToID(chat_id, message)
+
+        if not isinstance(result, bool):
+            return factory_message(result, self)
         return result
 
     def chat_send_message(self, chat_id, message):

@@ -51,9 +51,13 @@ class Message(WhatsappObject):
         super(Message, self).__init__(js_obj, driver)
 
         self.id = js_obj["id"]
-        self.sender = Contact(js_obj["sender"], driver) if js_obj["sender"] else False
+        self.wsp_mid = js_obj.get('wsp_mid', None)
+        self.sender = False
         self.timestamp = datetime.fromtimestamp(js_obj["timestamp"])
         self.chat_id = js_obj['chatId']
+
+        if js_obj["sender"]:
+            self.sender = Contact(js_obj["sender"], driver)
 
         try:
             status = MessageStatus(js_obj.get('ack', 0))
@@ -74,6 +78,11 @@ class Message(WhatsappObject):
             logger.info(json.dumps(js_obj))
             self.content = 'NOT SUPPORTED CONTENT'
             self.safe_content = 'NOT SUPPORTED CONTENT'
+
+        self.quotedMessage = None
+
+        if js_obj.get('quotedMsgObj', None):
+            self.quotedMessage = js_obj['quotedMsgObj']
 
     def __repr__(self):
         return "<Message - from {sender} at {timestamp}: {content}>".format(
